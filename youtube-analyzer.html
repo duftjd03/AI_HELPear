@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI_HELPear - YouTube 실시간 분석기</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-bg: #ffffff;
+            --secondary-bg: #f5f5f5;
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --border-color: #e0e0e0;
+            --accent-warning: #d32f2f;
+            --accent-info: #1976d2;
+            --accent-success: #388e3c;
+            --accent-notification: #f57c00;
+            --focus-color: #0d47a1;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-bg: #121212;
+                --secondary-bg: #1e1e1e;
+                --text-primary: #ffffff;
+                --text-secondary: #b0b0b0;
+                --border-color: #333333;
+                --accent-warning: #ef5350;
+                --accent-info: #42a5f5;
+                --accent-success: #66bb6a;
+                --accent-notification: #ffb74d;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+
+        header {
+            background-color: var(--secondary-bg);
+            padding: 20px 0;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .badge {
+            display: inline-block;
+            background-color: var(--accent-success);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 12px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--secondary-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        input[type="text"],
+        input[type="range"] {
+            padding: 10px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            background-color: var(--primary-bg);
+            color: var(--text-primary);
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background-color: var(--accent-info);
+            color: white;
+            min-height: 44px;
+            transition: all 0.2s ease;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        button:focus {
+            outline: 3px solid var(--focus-color);
+            outline-offset: 2px;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-capture {
+            background-color: var(--accent-success);
+        }
+
+        .btn-capture.active {
+            background-color: var(--accent-warning);
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .youtube-player {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 6px;
+            border: 2px solid var(--border-color);
+            min-height: 300px;
+        }
+
+        .visualization {
+            background-color: var(--text-primary);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 250px;
+            margin-bottom: 16px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .visualization-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--primary-bg);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-button.active {
+            background-color: var(--accent-info);
+            color: white;
+            border-color: var(--accent-info);
+        }
+
+        .meter-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background-color: var(--primary-bg);
+            border-radius: 6px;
+            border: 2px solid var(--border-color);
+        }
+
+        .meter-bar {
+            flex: 1;
+            height: 20px;
+            background-color: var(--secondary-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .meter-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-success), var(--accent-notification), var(--accent-warning));
+            width: 0%;
+            transition: width 0.05s ease;
+        }
+
+        .meter-value {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-primary);
+            min-width: 60px;
+            text-align: right;
+        }
+
+        .status-display {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .status-item {
+            background-color: var(--primary-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .status-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .status-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-info);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background-color: var(--accent-success);
+            color: white;
+        }
+
+        .status-badge.inactive {
+            background-color: var(--text-secondary);
+        }
+
+        .status-badge.capturing {
+            background-color: var(--accent-warning);
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .alert-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .alert-card {
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background-color: var(--primary-bg);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .alert-card.warning {
+            border-left-color: var(--accent-warning);
+            background-color: rgba(211, 47, 47, 0.1);
+        }
+
+        .alert-card.info {
+            border-left-color: var(--accent-info);
+            background-color: rgba(25, 118, 210, 0.1);
+        }
+
+        .alert-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .alert-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .no-alerts {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 6px;
+            background-color: var(--accent-info);
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            display: none;
+            margin-bottom: 16px;
+        }
+
+        .message.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .message.error {
+            background-color: var(--accent-warning);
+        }
+
+        .instructions {
+            background-color: var(--secondary-bg);
+            border: 2px solid var(--border-color);
+            border-left: 4px solid var(--accent-info);
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .instructions strong {
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🎵 AI_HELPear <span class="badge">YouTube 실시간 분석</span></h1>
+            <p>YouTube 영상을 시청하면서 실시간으로 오디오 분석</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="message" id="message"></div>
+
+        <div class="instructions">
+            <strong>📋 사용 방법:</strong><br>
+            1. YouTube URL을 입력하거나 기본 영상으로 시작<br>
+            2. "오디오 캡처 시작" 버튼을 클릭 (브라우저 권한 요청)<br>
+            3. YouTube 영상 재생 후 화면에서 소리가 분석됨<br>
+            4. 음성/효과음이 시각적으로 표시되고 자동 감지됨
+        </div>
+
+        <div class="main-grid">
+            <!-- 메인 패널 -->
+            <div class="panel">
+                <div>
+                    <h2>🎬 YouTube 영상</h2>
+                    <div class="input-group">
+                        <label for="youtubeUrl">YouTube URL</label>
+                        <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..."
+                               value="https://www.youtube.com/watch?v=dosbhD_1LIo">
+                        <button id="loadBtn">영상 로드</button>
+                    </div>
+                </div>
+
+                <div>
+                    <iframe id="youtubePlayer"
+                            class="youtube-player"
+                            src="https://www.youtube.com/embed/dosbhD_1LIo?enablejsapi=1"
+                            title="YouTube 영상"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen>
+                    </iframe>
+                </div>
+
+                <div>
+                    <h2>🔍 시각화 선택</h2>
+                    <div class="visualization-tabs">
+                        <button class="tab-button active" data-mode="waveform">파형</button>
+                        <button class="tab-button" data-mode="spectrum">스펙트럼</button>
+                        <button class="tab-button" data-mode="frequency">주파수</button>
+                    </div>
+                    <div class="visualization">
+                        <canvas id="visualizer"></canvas>
+                    </div>
+                </div>
+
+                <div>
+                    <h2>📊 음량 미터</h2>
+                    <div class="meter-display">
+                        <div class="meter-bar">
+                            <div class="meter-fill" id="meterFill"></div>
+                        </div>
+                        <div class="meter-value" id="meterValue">-∞dB</div>
+                    </div>
+                </div>
+
+                <div>
+                    <h2>⚙️ 감지 설정</h2>
+                    <div class="input-group">
+                        <label>음량 임계값 (dB)</label>
+                        <input type="range" id="threshold" min="-80" max="0" value="-40" step="5">
+                        <small style="color: var(--text-secondary); font-size: 12px;">
+                            낮을수록 민감함 (기본값: -40dB)
+                        </small>
+                    </div>
+                </div>
+
+                <div>
+                    <h2>📡 오디오 캡처 제어</h2>
+                    <button class="btn-capture" id="captureBtn">🎤 오디오 캡처 시작</button>
+                    <button id="stopBtn" style="background-color: var(--text-secondary);" disabled>중지</button>
+                    <small style="color: var(--text-secondary); font-size: 12px; margin-top: 8px; display: block;">
+                        💡 팁: 브라우저가 "현재 탭" 오디오 공유 권한을 물어봅니다. 허용하면 영상의 소리를 실시간으로 분석합니다.
+                    </small>
+                </div>
+            </div>
+
+            <!-- 우측 패널 -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <!-- 상태 -->
+                <div class="panel">
+                    <h2>📡 상태</h2>
+                    <div class="status-display">
+                        <div class="status-item">
+                            <div class="status-label">분석 상태</div>
+                            <div class="status-badge inactive" id="statusBadge">대기 중</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">현재 음량</div>
+                            <div class="status-value" id="currentDb">-∞dB</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 통계 -->
+                <div class="panel">
+                    <h2>📊 통계</h2>
+                    <div class="status-display">
+                        <div class="status-item">
+                            <div class="status-label">감지된 효과음</div>
+                            <div class="status-value" id="detectedCount">0</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">최대 음량</div>
+                            <div class="status-value" id="maxDb">-∞</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 알림 -->
+                <div class="panel">
+                    <h2>🔔 감지된 효과음</h2>
+                    <div class="alert-cards" id="alertCards">
+                        <div class="no-alerts">
+                            <p>감지된 효과음이 없습니다</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 상태
+        const state = {
+            visualization: 'waveform',
+            threshold: -40,
+            isCapturing: false,
+            detections: [],
+            maxDb: -Infinity,
+            audioContext: null,
+            analyser: null,
+            animationId: null,
+        };
+
+        const UI = {
+            youtubeUrl: document.getElementById('youtubeUrl'),
+            loadBtn: document.getElementById('loadBtn'),
+            youtubePlayer: document.getElementById('youtubePlayer'),
+            visualizer: document.getElementById('visualizer'),
+            captureBtn: document.getElementById('captureBtn'),
+            stopBtn: document.getElementById('stopBtn'),
+            threshold: document.getElementById('threshold'),
+            message: document.getElementById('message'),
+            meterFill: document.getElementById('meterFill'),
+            meterValue: document.getElementById('meterValue'),
+            statusBadge: document.getElementById('statusBadge'),
+            detectedCount: document.getElementById('detectedCount'),
+            maxDb: document.getElementById('maxDb'),
+            currentDb: document.getElementById('currentDb'),
+            alertCards: document.getElementById('alertCards'),
+        };
+
+        // 메시지 표시
+        function showMessage(msg, isError = false, duration = 2000) {
+            UI.message.textContent = msg;
+            UI.message.classList.toggle('error', isError);
+            UI.message.classList.add('show');
+            setTimeout(() => {
+                UI.message.classList.remove('show');
+            }, duration);
+        }
+
+        // YouTube 영상 로드
+        UI.loadBtn.addEventListener('click', () => {
+            const url = UI.youtubeUrl.value.trim();
+            if (!url) {
+                showMessage('URL을 입력하세요', true);
+                return;
+            }
+
+            // YouTube 영상 ID 추출
+            const videoId = extractVideoId(url);
+            if (!videoId) {
+                showMessage('유효한 YouTube URL을 입력하세요', true);
+                return;
+            }
+
+            // iframe 업데이트
+            UI.youtubePlayer.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+            showMessage(`영상 로드됨: ${videoId}`);
+        });
+
+        // YouTube 영상 ID 추출
+        function extractVideoId(url) {
+            const patterns = [
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+                /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+            ];
+
+            for (let pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) return match[1];
+            }
+            return null;
+        }
+
+        // 시각화 탭
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                state.visualization = e.target.dataset.mode;
+            });
+        });
+
+        // 임계값 변경
+        UI.threshold.addEventListener('input', (e) => {
+            state.threshold = parseInt(e.target.value);
+        });
+
+        // 오디오 캡처 시작
+        UI.captureBtn.addEventListener('click', startCapture);
+        UI.stopBtn.addEventListener('click', stopCapture);
+
+        async function startCapture() {
+            try {
+                // getDisplayMedia로 화면/탭 공유 요청
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                    },
+                    video: { mediaSource: 'tab' }
+                });
+
+                // 오디오 트랙만 추출
+                const audioTrack = stream.getAudioTracks()[0];
+                if (!audioTrack) {
+                    showMessage('오디오를 찾을 수 없습니다', true);
+                    return;
+                }
+
+                // AudioContext 생성
+                state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                state.analyser = state.audioContext.createAnalyser();
+                state.analyser.fftSize = 2048;
+
+                // 오디오 소스 생성 및 연결
+                const mediaStreamSource = state.audioContext.createMediaStreamSource(stream);
+                mediaStreamSource.connect(state.analyser);
+
+                state.isCapturing = true;
+                UI.captureBtn.classList.add('active');
+                UI.captureBtn.textContent = '🎤 캡처 중...';
+                UI.captureBtn.disabled = true;
+                UI.stopBtn.disabled = false;
+                UI.statusBadge.textContent = '분석 중...';
+                UI.statusBadge.classList.add('capturing');
+
+                showMessage('오디오 캡처 시작. 영상을 재생하세요');
+
+                // 캡처 중지 시
+                audioTrack.onended = () => {
+                    stopCapture();
+                };
+
+                // 분석 시작
+                startAnalysis();
+
+            } catch (err) {
+                if (err.name === 'NotAllowedError') {
+                    showMessage('권한 요청을 거부했습니다', true);
+                } else if (err.name === 'NotFoundError') {
+                    showMessage('디스플레이 캡처를 지원하지 않는 브라우저입니다', true);
+                } else {
+                    showMessage(`오류: ${err.message}`, true);
+                }
+            }
+        }
+
+        function stopCapture() {
+            state.isCapturing = false;
+            UI.captureBtn.classList.remove('active');
+            UI.captureBtn.textContent = '🎤 오디오 캡처 시작';
+            UI.captureBtn.disabled = false;
+            UI.stopBtn.disabled = true;
+            UI.statusBadge.textContent = '대기 중';
+            UI.statusBadge.classList.remove('capturing');
+
+            if (state.animationId) {
+                cancelAnimationFrame(state.animationId);
+            }
+
+            if (state.audioContext) {
+                state.audioContext.close();
+                state.audioContext = null;
+                state.analyser = null;
+            }
+
+            showMessage('오디오 캡처 중지');
+        }
+
+        // 시각화 함수들
+        function drawWaveform(dataArray) {
+            const canvas = UI.visualizer;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.offsetWidth;
+            const height = canvas.offsetHeight;
+
+            canvas.width = width;
+            canvas.height = height;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-primary');
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent-info');
+            ctx.lineWidth = 2;
+
+            const sliceWidth = width / dataArray.length;
+            let x = 0;
+
+            ctx.beginPath();
+            for (let i = 0; i < dataArray.length; i++) {
+                const v = dataArray[i] / 128;
+                const y = (v * height) / 2;
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+            ctx.stroke();
+        }
+
+        function drawSpectrum(dataArray) {
+            const canvas = UI.visualizer;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.offsetWidth;
+            const height = canvas.offsetHeight;
+
+            canvas.width = width;
+            canvas.height = height;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-primary');
+            ctx.fillRect(0, 0, width, height);
+
+            const barWidth = width / dataArray.length * 2.5;
+            let x = 0;
+
+            for (let i = 0; i < dataArray.length; i++) {
+                const barHeight = (dataArray[i] / 255) * height;
+                const hue = (i / dataArray.length) * 360;
+
+                ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+                ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+                x += barWidth + 1;
+            }
+        }
+
+        function drawFrequency(dataArray) {
+            const canvas = UI.visualizer;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.offsetWidth;
+            const height = canvas.offsetHeight;
+
+            canvas.width = width;
+            canvas.height = height;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-primary');
+            ctx.fillRect(0, 0, width, height);
+
+            const bands = 8;
+            const bandWidth = Math.floor(dataArray.length / bands);
+            const barWidth = width / bands;
+
+            for (let i = 0; i < bands; i++) {
+                let sum = 0;
+                for (let j = 0; j < bandWidth; j++) {
+                    sum += dataArray[i * bandWidth + j];
+                }
+                const avg = sum / bandWidth / 255;
+
+                const colors = ['#66bb6a', '#42a5f5', '#ffb74d', '#ef5350', '#66bb6a', '#42a5f5', '#ffb74d', '#ef5350'];
+                ctx.fillStyle = colors[i];
+                ctx.fillRect(i * barWidth, height * (1 - avg), barWidth - 2, height * avg);
+
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-primary');
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                const freq = Math.round((i * 20000) / bands);
+                ctx.fillText(`${freq}Hz`, i * barWidth + barWidth / 2, height - 5);
+            }
+        }
+
+        // 분석 시작
+        function startAnalysis() {
+            function analyze() {
+                const dataArray = new Uint8Array(state.analyser.frequencyBinCount);
+                state.analyser.getByteFrequencyData(dataArray);
+
+                // 음량 계산
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i] * dataArray[i];
+                }
+                const rms = Math.sqrt(sum / dataArray.length);
+                const db = 20 * Math.log10(Math.max(rms / 255, 0.0001));
+
+                // UI 업데이트
+                const normalized = Math.max(0, Math.min(1, (db + 80) / 80));
+                UI.meterFill.style.width = (normalized * 100) + '%';
+                UI.meterValue.textContent = db.toFixed(1) + 'dB';
+                UI.currentDb.textContent = db.toFixed(1) + 'dB';
+
+                // 최대값 추적
+                if (db > state.maxDb) {
+                    state.maxDb = db;
+                    UI.maxDb.textContent = db.toFixed(1);
+                }
+
+                // 효과음 감지
+                if (db > state.threshold) {
+                    detectAudioEvent(db);
+                }
+
+                // 시각화
+                if (state.visualization === 'waveform') {
+                    const timeDomain = new Uint8Array(state.analyser.fftSize);
+                    state.analyser.getByteTimeDomainData(timeDomain);
+                    drawWaveform(timeDomain);
+                } else if (state.visualization === 'spectrum') {
+                    drawSpectrum(dataArray);
+                } else if (state.visualization === 'frequency') {
+                    drawFrequency(dataArray);
+                }
+
+                if (state.isCapturing) {
+                    state.animationId = requestAnimationFrame(analyze);
+                }
+            }
+
+            analyze();
+        }
+
+        // 효과음 감지
+        let lastDetectionTime = null;
+
+        function detectAudioEvent(db) {
+            const now = Date.now();
+            if (lastDetectionTime && (now - lastDetectionTime) < 500) return;
+
+            lastDetectionTime = now;
+            state.detections.push({ time: now, db });
+
+            // 알림 카드 생성
+            const types = ['warning', 'info'];
+            const typeIdx = state.detections.length % types.length;
+            const type = types[typeIdx];
+
+            const alertCard = document.createElement('div');
+            alertCard.className = `alert-card ${type}`;
+            alertCard.innerHTML = `
+                <div class="alert-icon">${type === 'warning' ? '⚠️' : '🔔'}</div>
+                <div class="alert-content">
+                    <div class="alert-title">${type === 'warning' ? '효과음 감지' : '음성 변화'}</div>
+                    <div class="alert-time">${db.toFixed(1)}dB</div>
+                </div>
+            `;
+
+            const container = UI.alertCards;
+            if (container.querySelector('.no-alerts')) {
+                container.innerHTML = '';
+            }
+            container.insertBefore(alertCard, container.firstChild);
+
+            while (container.children.length > 10) {
+                container.removeChild(container.lastChild);
+            }
+
+            // 통계 업데이트
+            UI.detectedCount.textContent = state.detections.length;
+        }
+
+        // 초기 메시지
+        showMessage('YouTube URL을 입력하고 "오디오 캡처 시작"을 클릭하세요');
+    </script>
+</body>
+</html>
